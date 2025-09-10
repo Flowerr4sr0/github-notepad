@@ -16,37 +16,33 @@
 
 <script>
 const params = new URLSearchParams(window.location.search);
-const token = params.get('token');
+let token = params.get('token');
 const gistIdKey = 'my-notepad-gist-id';
 const textarea = document.getElementById('note');
 const saveBtn = document.getElementById('save');
 
-if (!token) {
-  alert('Please login with GitHub first.');
-  window.location.href = `https://github.com/login/oauth/authorize?client_id=Ov23lioWTvqkmOUtiogF&scope=gist`;
-}
-
-// Load note
 async function loadNote() {
   const gistId = localStorage.getItem(gistIdKey);
-  if (!gistId) return;
-
+  if (!gistId || !token) return;
   const res = await fetch(`https://api.github.com/gists/${gistId}`, {
     headers: { Authorization: `token ${token}` }
   });
+  if (!res.ok) return;
   const gist = await res.json();
   const fileName = Object.keys(gist.files)[0];
   textarea.value = gist.files[fileName].content;
 }
 
-// Save note
 async function saveNote() {
+  if (!token) {
+    alert('No token found! Please provide a GitHub Personal Access Token.');
+    return;
+  }
   let gistId = localStorage.getItem(gistIdKey);
   const content = textarea.value;
 
   if (gistId) {
-    // Update existing Gist
-    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    await fetch(`https://api.github.com/gists/${gistId}`, {
       method: 'PATCH',
       headers: {
         Authorization: `token ${token}`,
@@ -56,7 +52,6 @@ async function saveNote() {
     });
     alert('Saved!');
   } else {
-    // Create new Gist
     const res = await fetch(`https://api.github.com/gists`, {
       method: 'POST',
       headers: {
@@ -73,6 +68,19 @@ async function saveNote() {
     localStorage.setItem(gistIdKey, gist.id);
     alert('Saved!');
   }
+}
+
+// If no token, redirect to OAuth then prompt for Personal Access Token
+if (!token) {
+  const clientId = 'Ov23lioWTvqkmOUtiogF';
+  const oauthUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&scope=gist`;
+  alert('Redirecting to GitHub OAuth. After authorizing, create a Personal Access Token with "gist" scope and paste it.');
+  window.location.href = oauthUrl;
+}
+
+// Prompt user for token if still none
+if (!token) {
+  token = prompt("Enter your GitHub Personal Access Token (with 'gist' scope):");
 }
 
 loadNote();
