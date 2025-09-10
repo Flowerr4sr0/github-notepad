@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GitHub Gist Notepad</title>
+<style>
+  textarea { width: 100%; height: 80vh; font-size: 16px; }
+  button { padding: 10px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>GitHub Gist Notepad</h1>
+<textarea id="note"></textarea>
+<br>
+<button id="save">Save</button>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const token = params.get('token');
+const gistIdKey = 'my-notepad-gist-id';
+const textarea = document.getElementById('note');
+const saveBtn = document.getElementById('save');
+
+if (!token) {
+  alert('Please login with GitHub first.');
+  window.location.href = `https://github.com/login/oauth/authorize?client_id=YOUR_CLIENT_ID&scope=gist`;
+}
+
+// Load note
+async function loadNote() {
+  const gistId = localStorage.getItem(gistIdKey);
+  if (!gistId) return;
+
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    headers: { Authorization: `token ${token}` }
+  });
+  const gist = await res.json();
+  const fileName = Object.keys(gist.files)[0];
+  textarea.value = gist.files[fileName].content;
+}
+
+// Save note
+async function saveNote() {
+  let gistId = localStorage.getItem(gistIdKey);
+  const content = textarea.value;
+
+  if (gistId) {
+    // Update existing Gist
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `token ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ files: { 'note.txt': { content } } })
+    });
+    alert('Saved!');
+  } else {
+    // Create new Gist
+    const res = await fetch(`https://api.github.com/gists`, {
+      method: 'POST',
+      headers: {
+        Authorization: `token ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        description: 'My GitHub Notepad',
+        public: false,
+        files: { 'note.txt': { content } }
+      })
+    });
+    const gist = await res.json();
+    localStorage.setItem(gistIdKey, gist.id);
+    alert('Saved!');
+  }
+}
+
+loadNote();
+saveBtn.addEventListener('click', saveNote);
+</script>
+</body>
+</html>
